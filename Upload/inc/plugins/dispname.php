@@ -69,9 +69,13 @@ $plugins->add_hook('admin_user_users_edit', 'dispname_admin_add_field');
 
 function dispname_info()
 {
+	global $lang;
+
+	dispname_language_load();
+
 	return array(
 		'name'			=> 'Display Usernames / Nicks Plugin',
-		'description'	=> 'Allow users to have a different display and login names.',
+		'description'	=> $lang->dispname_desc,
 		'website'		=> 'http://mybbhacks.zingaburga.com/',
 		'author'		=> 'ZiNgA BuRgA',
 		'authorsite'	=> 'http://zingaburga.com/',
@@ -186,17 +190,20 @@ function dispname_updateuser(&$uh) {
 	$user['loginname'] = $db->escape_string($uh->data['loginname']);
 }
 function dispname_verifyuser(&$uh) {
-	global $mybb;
+	global $mybb, $lang;
+
+	dispname_language_load();
+
 	// fix up stuff for new registration page
 	if($GLOBALS['dispname_member_do_register']) {
-		global $lang, $loginname;
+		global $loginname;
 		if($mybb->input['loginname']) {
 			$uh->data['loginname'] = $mybb->input['loginname'];
 			$loginname = htmlspecialchars_uni($mybb->input['loginname']);
 			// !!! relies on language string !!!
-			$lang->email_activateaccount = str_replace('Username: {1}', 'Username: '.$loginname, $lang->email_activateaccount);
+			$lang->email_activateaccount = str_replace(': {1}', ': '.$loginname, $lang->dispname_email_activateaccount);
 			
-			$lang->email_randompassword = str_replace('{3}', $loginname, $lang->email_randompassword);
+			$lang->email_randompassword = str_replace('{3}', $loginname, $lang->dispname_email_randompassword);
 		}
 	} elseif(defined('IN_ADMINCP') && isset($GLOBALS['user_view_fields']) && ($mybb->input['action'] == 'add' || $mybb->input['action'] == 'edit')) {
 		// AdminCP add/edit user
@@ -209,9 +216,6 @@ function dispname_verifyuser(&$uh) {
 		$uh->data['loginname'] = $uh->data['username'];
 	
 	if(isset($uh->data['loginname'])) {
-		global $lang;
-		$lang->userdata_bad_characters_loginname = 'The login name you entered contains bad characters. Please enter a different login name.';
-		$lang->userdata_loginname_exists = 'The login name you entered already exists. Please enter a different login name.';
 		if(!dispname_loginname_valid($uh->data['loginname']))
 			$uh->set_error('bad_characters_loginname', array($uh->data['loginname']));
 		elseif(dispname_loginname_exists($uh->data['loginname'], $uh->data['uid']))
@@ -260,7 +264,10 @@ function dispname_member_reactivate() {
 			$args = func_get_args();
 			if($string == $this->email_activateaccount) {
 				// !!! relies on language string !!!
-				$string = str_replace("Username: {1}", "Username: ".$GLOBALS[\'user\'][\'loginname\'], $string);
+
+				dispname_language_load();
+
+				$string = str_replace(": {1}", ": ".$GLOBALS[\'user\'][\'loginname\'], $GLOBALS[\'lang\']->dispname_email_activateaccount);
 				$args[0] = $string;
 			}
 			return call_user_func_array(array(parent, \'sprintf\'), $args);
@@ -271,16 +278,26 @@ function dispname_member_lostpw() {
 	control_object($GLOBALS['lang'], '
 		function sprintf($string) {
 			$args = func_get_args();
-			if($string == $this->email_lostpw || $string == $this->email_lostpw2) {
+			if($string == $this->email_lostpw) {
 				// !!! relies on language string !!!
-				$string = str_replace("Username: {1}", "Username: ".$GLOBALS[\'user\'][\'loginname\'], $string);
+
+				dispname_language_load();
+
+				$string = str_replace(": {1}", ": ".$GLOBALS[\'user\'][\'loginname\'], $GLOBALS[\'lang\']->dispname_email_lostpw);
+				$args[0] = $string;
+			}
+			if($string == $this->email_lostpw2) {
+				// !!! relies on language string !!!
+
+				dispname_language_load();
+
+				$string = str_replace(": {1}", ": ".$GLOBALS[\'user\'][\'loginname\'], $GLOBALS[\'lang\']->dispname_email_lostpw2);
 				$args[0] = $string;
 			}
 			return call_user_func_array(array(parent, \'sprintf\'), $args);
 		}
 	');
 }
-
 function dispname_member_login() {
 	static $hooked = false;
 	if($hooked) return;
@@ -352,11 +369,9 @@ function dispname_admin_unlock() {
 
 function dispname_register_langs() {
 	global $lang;
-	$lang->loginname = 'Login Name';
-	$lang->username = 'Display Username';
-	//$lang->js_validator_checking_username = 'Checking if display name is available';
-	$lang->js_validator_checking_loginname = 'Checking if login name is available';
-	
+
+	dispname_language_load();
+
 	$GLOBALS['loginname'] = htmlspecialchars_uni($GLOBALS['mybb']->input['loginname']);
 }
 function dispname_register_checkloginname() {
@@ -396,7 +411,9 @@ function dispname_admin_add_field() {
 	if($mybb->request_method == 'post') {
 		if(!trim($mybb->input['loginname'])) {
 			global $lang;
-			$lang->no_loginname = 'No login name supplied';
+
+			dispname_language_load();
+
 			$GLOBALS['errors'][] = $lang->no_loginname;
 		} else {
 			
@@ -417,7 +434,9 @@ function dispname_admin_add_field() {
 	function _dispname_admin_add_field(&$a) {
 		if($a['label_for'] == 'username') {
 			global $lang;
-			$lang->loginname = 'Login Name';
+
+			dispname_language_load();
+
 			$a['this']->output_row($lang->loginname.' <em>*</em>', '', $GLOBALS['form']->generate_text_box('loginname', $GLOBALS['mybb']->input['loginname'], array('id' => 'loginname')), 'loginname');
 		}
 	}
@@ -442,7 +461,88 @@ function dispname_loginname_exists($name, $uid=0) {
 	return (bool)$db->fetch_field($query, 'uid');
 }
 
+function dispname_language_load()
+{
+	global $lang;
+
+	isset($lang->dispname) or $lang->load('dispname', false, true);
+
+	if(!isset($lang->dispname))
+	{
+		$lang->dispname = 'Display Usernames / Nicks Plugin';
+		$lang->dispname_desc = 'Allow users to have a different display and login names.';
+
+		$lang->dispname_email_activateaccount = '{1},
+
+To complete the registration process on {2}, you will need to go to the URL below in your web browser.
+
+{3}/member.php?action=activate&uid={4}&code={5}
+
+If the above link does not work correctly, go to
+
+{3}/member.php?action=activate
+
+You will need to enter the following:
+Login name: {1}
+Activation Code: {5}
+
+Thank you,
+{2} Staff';
+		$lang->dispname_email_randompassword = '{1},
+
+Thank you for registering on {2}. Below is your username and the randomly generated password. To login to {2}, you will need these details.
+
+Login name: {3}
+Password: {4}
+
+It is recommended you change your password immediately after you login. You can do this by going to your User CP then clicking Change Password on the left menu.
+
+Thank you,
+{2} Staff';
+
+		$lang->userdata_bad_characters_loginname = 'The login name you entered contains bad characters. Please enter a different login name.';
+		$lang->userdata_loginname_exists = 'The login name you entered already exists. Please enter a different login name.';
+
+		$lang->dispname_email_lostpw = '{1},
+
+To complete the phase of resetting your account password at {2}, you will need to go to the URL below in your web browser.
+
+{3}/member.php?action=resetpassword&uid={4}&code={5}
+
+If the above link does not work correctly, go to
+
+{3}/member.php?action=resetpassword
+
+You will need to enter the following:
+Login name: {1}
+Activation Code: {5}
+
+Thank you,
+{2} Staff';
+		$lang->dispname_email_lostpw2 = '{1},
+
+To complete the phase of resetting your account password at {2}, you will need to go to the URL below in your web browser.
+
+{3}/member.php?action=resetpassword&uid={4}&code={5}
+
+If the above link does not work correctly, go to
+
+{3}/member.php?action=resetpassword
+
+You will need to enter the following:
+Login name: {1} (Or your email address)
+Activation Code: {5}
+
+Thank you,
+{2} Staff';
+
+		$lang->loginname = 'Login Name';
+		$lang->no_loginname = 'No login name supplied';
+		$lang->username = 'Display Username';
+		//$lang->js_validator_checking_username = 'Checking if display name is available';
+		$lang->js_validator_checking_loginname = 'Checking if login name is available';
+	}
+}
+
 // TODO: admin search users??
 // TODO: langs - when logging in, change "Username" -> "Login name"
-
-?>
